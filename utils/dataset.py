@@ -1,0 +1,544 @@
+import numpy as np
+import pandas as pd
+import os
+import cv2
+
+"""
+# All about MNIST Style DataSet
+
+> We include the following dataset list
+    - mnist : handwritten digits dataset
+
+    - fashionmnist : dataset of Zalando's article images
+
+    - handwritten : handwritten a ~ z Alphabet dataset
+
+
+Current Implemented Generator list
+
+    1. SerializationDataset
+    
+    2. CalculationDataset
+
+    3. ClassificationDataset
+
+    4. LocalizationDataset
+
+"""
+DOWNLOAD_URL_FORMAT = "https://s3.ap-northeast-2.amazonaws.com/pai-datasets/all-about-mnist/{}/{}.csv"
+DATASET_DIR = "../datasets"
+
+
+class SerializationDataset:
+    """
+    generate data for Serialization
+
+    이 class는 단순히 숫자를 나열하는 것
+
+    :param dataset : Select one, (mnist, fashionmnist, handwritten)
+    :param data_type : Select one, (train, test, validation)
+    :param digit : the length of number (몇개의 숫자를 serialize할 것인지 결정)
+    :param bg_noise : the background noise of image, bg_noise = (gaussian mean, gaussian stddev)
+    :param pad_range : the padding length between two number (두 숫자 간 거리, 값의 범위로 주어 랜덤하게 결정)
+    """
+
+    def __init__(self, dataset="mnist", data_type="train",
+                 digit=5, bg_noise=(0, 0.2), pad_range=(3, 30)):
+        """
+        generate data for Serialization
+
+        :param dataset: Select one, (mnist, fashionmnist, handwritten)
+        :param data_type: Select one, (train, test, validation)
+        :param digit : the length of number (몇개의 숫자를 serialize할 것인지 결정)
+        :param bg_noise : the background noise of image, bg_noise = (gaussian mean, gaussian stddev)
+        :param pad_range : the padding length between two number (두 숫자 간 거리, 값의 범위로 주어 랜덤하게 결정)
+        """
+        self.images, self.labels = load_dataset(dataset, data_type)
+        self.digit = digit
+        self.num_data = len(self.labels) // self.digit
+        self.index_list = np.arange(len(self.labels))
+
+        self.digit = digit
+        self.bg_noise = bg_noise
+        self.pad_range = pad_range
+
+        self.max_length = int((20 + pad_range[1]) * digit)
+
+    def __len__(self):
+        return self.num_data
+
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            digits = self.index_list[self.digit * index:
+                                     self.digit * (index + 1)]
+
+            digit_images = self.images[digits]
+            digit_labels = self.labels[digits].values
+            series_image, series_len = self._serialize_random(digit_images)
+
+            return series_image, digit_labels, series_len
+
+        else:
+            batch_images, batch_labels, batch_length = [], [], []
+            indexes = np.arange(self.num_data)[index]
+            for _index in indexes:
+                digits = self.index_list[self.digit * _index:
+                                         self.digit * (_index + 1)]
+
+                digit_images = self.images[digits]
+                digit_labels = self.labels[digits].values
+                series_image, series_len = self._serialize_random(digit_images)
+                batch_images.append(series_image)
+                batch_labels.append(digit_labels)
+                batch_length.append(series_len)
+
+            return np.stack(batch_images), \
+                np.stack(batch_labels), \
+                np.stack(batch_length)
+
+    def shuffle(self):
+        indexes = np.arange(len(self.images))
+        np.random.shuffle(indexes)
+
+        self.images = self.images[indexes]
+        self.labels = self.labels[indexes]
+        self.labels.index = np.arange(len(self.labels))
+
+    def _serialize_random(self, images):
+        """
+        복수의 이미지를 직렬로 붙임
+
+        :param images:
+        :return:
+        """
+        pad_height = images.shape[1]
+        pad_width = np.random.randint(*self.pad_range)
+
+        serialized_image = np.zeros([pad_height, pad_width])
+        for image in images:
+            serialized_image = self._place_random(image, serialized_image)
+
+        full_image = np.random.normal(*self.bg_noise,
+                                      size=(pad_height, self.max_length))
+
+        if serialized_image.shape[1] < self.max_length:
+            series_length = serialized_image.shape[1]
+            full_image[:, :serialized_image.shape[1]] += serialized_image
+        else:
+            series_length = full_image.shape[1]
+            full_image += serialized_image[:, :full_image.shape[1]]
+
+        full_image = np.clip(full_image, 0., 1.)
+        return full_image, series_length
+
+    def _place_random(self, image, serialized_image):
+        """
+        가운데 정렬된 이미지를 떼어서 재정렬함
+
+        :param image:
+        :param serialized_image:
+        :return:
+        """
+        x_min, x_max, _, _ = crop_fit_position(image)
+        cropped = image[:, x_min:x_max]
+
+        pad_height = cropped.shape[0]
+        pad_width = np.random.randint(*self.pad_range)
+        pad = np.zeros([pad_height, pad_width])
+
+        serialized_image = np.concatenate(
+            [serialized_image, cropped, pad], axis=1)
+        return serialized_image
+
+
+class CalculationDataset:
+    """
+    generate data for Calculation
+
+    이 class는 아래과 같은 수식을 automatically 만들어줌
+    (1 + 2) * 3 + 5 * (2 + 3)
+
+    :param data_type : Select one, (train, test, validation)
+    :param digit : the length of number (몇개의 숫자를 serialize할 것인지 결정)
+    :param bg_noise : the background noise of image, bg_noise = (gaussian mean, gaussian stddev)
+    :param pad_range : the padding length between two number (두 숫자 간 거리, 값의 범위로 주어 랜덤하게 결정)
+    """
+
+    def __init__(self, data_type="train", digit=5,
+                 bg_noise=(0, 0.2), pad_range=(3, 30)):
+        """
+        generate data for Calculation
+
+        :param data_type: Select one, (train, test, validation)
+        :param digit : the length of number (몇개의 숫자를 serialize할 것인지 결정)
+        :param bg_noise : the background noise of image, bg_noise = (gaussian mean, gaussian stddev)
+        :param pad_range : the padding length between two number (두 숫자 간 거리, 값의 범위로 주어 랜덤하게 결정)
+        """
+        self.images, self.labels = load_dataset("mnist", data_type)
+        self.digit = digit
+        self.num_data = len(self.labels) // self.digit
+        self.index_list = np.arange(len(self.labels))
+
+        self.digit = digit
+        self.bg_noise = bg_noise
+        self.pad_range = pad_range
+
+        self.max_length = int((20 + pad_range[1]) * digit * 2)
+        self._setup_ops_image()  # create mnist-style image of brackets and operations
+
+    def __len__(self):
+        return self.num_data
+
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            digits = self.index_list[self.digit * index:
+                                     self.digit * (index + 1)]
+
+            digit_images = self.images[digits]
+            digit_labels = self.labels[digits].values
+            eq_image, eq_result, equation = \
+                self._create_equation_random(digit_images, digit_labels)
+            series_image, series_len = self._serialize_random(eq_image)
+
+            return series_image, eq_result, series_len, equation
+        else:
+            batch_images, batch_eq_results, batch_series_lens, batch_equations = \
+                [], [], [], []
+            indexes = np.arange(self.num_data)[index]
+            for _index in indexes:
+                digits = self.index_list[self.digit * _index:
+                                         self.digit * (_index + 1)]
+
+                digit_images = self.images[digits]
+                digit_labels = self.labels[digits].values
+                eq_image, eq_result, equation = \
+                    self._create_equation_random(digit_images, digit_labels)
+                series_image, series_len = self._serialize_random(eq_image)
+                batch_images.append(series_image)
+                batch_eq_results.append(eq_result)
+                batch_series_lens.append(series_len)
+                batch_equations.append(equation)
+
+            return np.stack(batch_images), \
+                np.stack(batch_eq_results), \
+                np.stack(batch_series_lens), \
+                np.stack(batch_equations)
+
+    def shuffle(self):
+        indexes = np.arange(len(self.images))
+        np.random.shuffle(indexes)
+
+        self.images = self.images[indexes]
+        self.labels = self.labels[indexes]
+        self.labels.index = np.arange(len(self.labels))
+
+    def _create_equation_random(self, images, labels):
+        """
+        랜덤 수식을 만듦
+
+        :param images:
+        :param labels:
+        :return:
+        """
+        N = len(labels)
+        numbers = labels  # 숫자 N개 도출
+
+        ops = np.random.choice(["+", "-", "*"], size=N - 1)  # 연산자 N-1개 추출
+
+        # 괄호 후보군을 포함한 수식 전체 리스트 만들기
+        cal_series = np.array([""] * (4 * N - 1), dtype="<U{}".format(N))
+        # 숫자와 연산자 채워넣기
+        cal_series[1::4] = numbers
+        cal_series[3::4] = ops
+
+        # 괄호의 숫자 N개 도출
+        num_bracket = np.random.randint(1, np.ceil(N / 2) + 1)
+
+        for _ in range(num_bracket):
+            # 왼 괄호 위치 결정
+            lb_candidate = np.random.randint(0, N)
+            # 오른 괄호 위치 결정 -> 왼 괄호보다는 오른쪽에 있어야함
+            rb_candidate = np.random.randint(lb_candidate, N)
+            # 왼괄호/오른괄호 넣기
+            cal_series[lb_candidate * 4] = cal_series[lb_candidate * 4] + "("
+            cal_series[rb_candidate * 4 +
+                       2] = cal_series[rb_candidate * 4 + 2] + ")"
+
+        equation = "".join(list(cal_series))
+        eq_image = self._draw_equation(images, equation)
+        eq_result = eval(equation)
+
+        return eq_image, eq_result, equation
+
+    def _serialize_random(self, images):
+        """
+        복수의 이미지를 직렬로 붙임
+
+        :param images:
+        :return:
+        """
+        pad_height = images.shape[1]
+        pad_width = np.random.randint(*self.pad_range)
+
+        serialized_image = np.zeros([pad_height, pad_width])
+        for image in images:
+            serialized_image = self._place_random(image, serialized_image)
+
+        full_image = np.random.normal(*self.bg_noise,
+                                      size=(pad_height, self.max_length))
+
+        if serialized_image.shape[1] < self.max_length:
+            series_length = serialized_image.shape[1]
+            full_image[:, :serialized_image.shape[1]] += serialized_image
+        else:
+            series_length = full_image.shape[1]
+            full_image += serialized_image[:, :full_image.shape[1]]
+
+        full_image = np.clip(full_image, 0., 1.)
+        return full_image, series_length
+
+    def _place_random(self, image, serialized_image):
+        """
+        가운데 정렬된 이미지를 떼어서 재정렬함
+
+        :param image:
+        :param serialized_image:
+        :return:
+        """
+        x_min, x_max, _, _ = crop_fit_position(image)
+        cropped = image[:, x_min:x_max]
+
+        pad_height = cropped.shape[0]
+        pad_width = np.random.randint(*self.pad_range)
+        pad = np.zeros([pad_height, pad_width])
+
+        serialized_image = np.concatenate(
+            [serialized_image, cropped, pad], axis=1)
+        return serialized_image
+
+    def _setup_ops_image(self):
+        # 왼괄호가 잘 만들어지는지 확인
+        blank = np.zeros((28, 28), np.uint8)
+        image = cv2.putText(blank, "(", (10, 18), cv2.FONT_HERSHEY_DUPLEX,
+                            0.6, 255)
+        left_bracket = cv2.GaussianBlur(image, (3, 3), 1)
+        self.left_bracket = left_bracket / 255
+
+        # 오른괄호가 잘 만들어지는지 확인
+        blank = np.zeros((28, 28), np.uint8)
+        image = cv2.putText(blank, ")", (10, 18), cv2.FONT_HERSHEY_DUPLEX,
+                            0.6, 255)
+        right_bracket = cv2.GaussianBlur(image, (3, 3), 1)
+        self.right_bracket = right_bracket / 255
+
+        # 더하기가 잘 만들어지는지 확인
+        blank = np.zeros((28, 28), np.uint8)
+        image = cv2.putText(blank, "+", (5, 18), cv2.FONT_HERSHEY_DUPLEX,
+                            0.6, 255)
+        plus = cv2.GaussianBlur(image, (3, 3), 1)
+        self.plus = plus / 255
+
+        # 빼기가 잘 만들어지는지 확인
+        blank = np.zeros((28, 28), np.uint8)
+        image = cv2.putText(blank, "-", (5, 18), cv2.FONT_HERSHEY_DUPLEX,
+                            0.6, 255)
+        minus = cv2.GaussianBlur(image, (3, 3), 1)
+        self.minus = minus / 255
+
+        # 곱하기가 잘 만들어지는지 확인
+        blank = np.zeros((28, 28), np.uint8)
+        image = cv2.putText(blank, "X", (7, 20), cv2.FONT_HERSHEY_TRIPLEX,
+                            0.6, 255)
+        multiply = cv2.GaussianBlur(image, (3, 3), 1)
+        self.multiply = multiply / 255
+
+    def _draw_equation(self, images, equation):
+        n_idx = 0
+        equation_images = np.zeros((len(equation), *images.shape[1:]))
+        for idx, element in enumerate(equation):
+            if element.isnumeric():
+                equation_images[idx] = images[n_idx]
+                n_idx += 1
+            elif element == "(":
+                equation_images[idx] = self.left_bracket
+            elif element == ")":
+                equation_images[idx] = self.right_bracket
+            elif element == "+":
+                equation_images[idx] = self.plus
+            elif element == "-":
+                equation_images[idx] = self.minus
+            elif element == "*":
+                equation_images[idx] = self.multiply
+        return equation_images
+
+
+class ClassificationDataset:
+    def __init__(self, dataset="mnist", data_type="train"):
+        """
+        generate data for classification
+
+        :param dataset: Select one, (mnist, fashionmnist, handwritten)
+        :param data_type: Select one, (train, test, validation)
+        """
+        self.images, self.labels = load_dataset(dataset, data_type)
+        self.num_data = len(self.labels)
+
+    def __len__(self):
+        return self.num_data
+
+    def __getitem__(self, index):
+        batch_images = self.images[index]
+        batch_labels = self.labels[index]
+
+        if batch_images.ndim == 3:
+            """
+            # index > 1 -> need to stack, series to numpy.ndarray
+            """
+            return np.stack(batch_images), batch_labels.values
+        else:
+            """
+            # index == 1 -> no need to stack
+            """
+            return batch_images, batch_labels
+
+    def shuffle(self):
+        indexes = np.arange(len(self.images))
+        np.random.shuffle(indexes)
+
+        self.images = self.images[indexes]
+        self.labels = self.labels[indexes]
+        self.labels.index = np.arange(len(self.labels))
+
+
+class LocalizationDataset:
+    def __init__(self, dataset="mnist", data_type="train",
+                 rescale_ratio=(.8, 3.),
+                 bg_size=(112, 112), bg_noise=(0, 0.2)):
+        """
+        generate data for localization
+
+        :param dataset: Select one, (mnist, fashionmnist, handwritten)
+        :param data_type: Select one, (train, test, validation)
+        """
+        self.images, self.labels = load_dataset(dataset, data_type)
+        self.num_data = len(self.labels)
+
+        self.rescale_ratio = rescale_ratio
+        self.bg_size = bg_size
+        self.bg_noise = bg_noise
+
+    def __len__(self):
+        return self.num_data
+
+    def __getitem__(self, index):
+        batch_images = self.images[index]
+        batch_labels = self.labels[index]
+
+        if batch_images.ndim == 3:
+            """
+             # of index > 1 -> need to stack, series to numpy.ndarray
+            """
+            image_with_bgs = []
+            positions = []
+            labels = batch_labels.values
+            for image in batch_images:
+                image = self.rescale_random(image)
+                image_with_bg, position = self.place_random(image)
+                image_with_bgs.append(image_with_bg)
+                positions.append(position)
+
+            images = np.stack(image_with_bgs)
+            positions = np.stack(positions)
+            return images, positions, labels
+        else:
+            """
+             # of index == 1 -> no need to stack
+            """
+            image = self.rescale_random(batch_images)
+            image_with_bg, position = self.place_random(image)
+            label = batch_labels
+            return image_with_bg, position, label
+
+    def shuffle(self):
+        indexes = np.arange(len(self.images))
+        np.random.shuffle(indexes)
+
+        self.images = self.images[indexes]
+        self.labels = self.labels[indexes]
+        self.labels.index = np.arange(len(self.labels))
+
+    def rescale_random(self, image):
+        value = np.random.uniform(*self.rescale_ratio)
+        image = cv2.resize(image, None, fx=value, fy=value)
+        return image
+
+    def place_random(self, image):
+        background = np.random.normal(*self.bg_noise, size=self.bg_size)
+        height, width = self.bg_size
+        height_fg, width_fg = image.shape
+
+        y = np.random.randint(0, height - height_fg - 1)
+        x = np.random.randint(0, width - width_fg - 1)
+
+        x_min, x_max, y_min, y_max = crop_fit_position(image)
+
+        position = np.array([(x_min + x) / width, (x_max + x) / width,
+                             (y_min + y) / height, (y_max + y) / height])
+
+        background[y:y + height_fg, x:x + width_fg] += image
+
+        background = np.clip(background, 0., 1.)
+        return background, position
+
+
+def crop_fit_position(image):
+    """
+    get the coordinates to fit object in image
+
+    :param image:
+    :return:
+    """
+    positions = np.argwhere(
+        image >= 0.1)  # set the threshold to 0.1 for reducing the noise
+
+    y_min, x_min = positions.min(axis=0)
+    y_max, x_max = positions.max(axis=0)
+
+    return np.array([x_min, x_max, y_min, y_max])
+
+
+def load_dataset(dataset, data_type):
+    """
+    Load the MNIST-Style dataset
+    if you don't have dataset, download the file automatically
+
+    :param dataset: Select one, (mnist, fashionmnist, handwritten)
+    :param data_type: Select one, (train, test, validation)
+    :return:
+    """
+    if dataset not in ["mnist", "fashionmnist", "handwritten"]:
+        raise ValueError(
+            "allowed dataset: mnist, fashionmnist, handwritten")
+    if data_type not in ["train", "test", "validation"]:
+        raise ValueError(
+            "allowed data_type: train, test, validation")
+
+    file_path = os.path.join(
+        DATASET_DIR, "{}/{}.csv".format(dataset, data_type))
+
+    if not os.path.exists(file_path):
+        import wget
+        os.makedirs(os.path.split(file_path)[0], exist_ok=True)
+        url = DOWNLOAD_URL_FORMAT.format(dataset, data_type)
+        wget.download(url, out=file_path)
+
+    df = pd.read_csv(file_path)
+
+    images = df.values[:, 1:].reshape(-1, 28, 28)
+    images = images / 255  # normalization, 0~1
+    labels = df.label  # label information
+    return images, labels
+
+
+if __name__ == '__main__':
+    pass
