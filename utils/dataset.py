@@ -49,28 +49,33 @@ class SerializationDataset:
 
         :param dataset: Select one, (mnist, fashionmnist, handwritten)
         :param data_type: Select one, (train, test, validation)
-        :param digit : the length of number (몇개의 숫자를 serialize할 것인지 결정)
+        :param digit : the length of number
+          if digit is integer, the length of number is always same value.
+          if digit is tuple(low_value, high_value), the length of number will be determined within the range
         :param bg_noise : the background noise of image, bg_noise = (gaussian mean, gaussian stddev)
         :param pad_range : the padding length between two number (두 숫자 간 거리, 값의 범위로 주어 랜덤하게 결정)
         """
         self.images, self.labels = load_dataset(dataset, data_type)
-        self.digit = digit
-        self.num_data = len(self.labels) // self.digit
+        if isinstance(digit, int):
+            self.digit_range = (digit, digit+1)
+        else:
+            self.digit_range = digit
+        self.num_data = len(self.labels) // (self.digit_range[1]-1)
         self.index_list = np.arange(len(self.labels))
 
-        self.digit = digit
         self.bg_noise = bg_noise
         self.pad_range = pad_range
 
-        self.max_length = int((20 + pad_range[1]) * digit)
+        self.max_length = int((20 + pad_range[1]) * self.digit_range[1] * 2)
 
     def __len__(self):
         return self.num_data
 
     def __getitem__(self, index):
         if isinstance(index, int):
-            digits = self.index_list[self.digit * index:
-                                     self.digit * (index + 1)]
+            num_digit = np.random.randint(*self.digit_range)
+            start_index = (self.digit_range[1]-1) * index
+            digits = self.index_list[start_index :start_index + num_digit]
 
             digit_images = self.images[digits]
             digit_labels = self.labels[digits].values
@@ -82,8 +87,9 @@ class SerializationDataset:
             batch_images, batch_labels, batch_length = [], [], []
             indexes = np.arange(self.num_data)[index]
             for _index in indexes:
-                digits = self.index_list[self.digit * _index:
-                                         self.digit * (_index + 1)]
+                num_digit = np.random.randint(*self.digit_range)
+                start_index = (self.digit_range[1] - 1) * _index
+                digits = self.index_list[start_index :start_index + num_digit]
 
                 digit_images = self.images[digits]
                 digit_labels = self.labels[digits].values
@@ -164,26 +170,30 @@ class CalculationDataset:
     :param pad_range : the padding length between two number (두 숫자 간 거리, 값의 범위로 주어 랜덤하게 결정)
     """
 
-    def __init__(self, data_type="train", digit=5,
-                 bg_noise=(0, 0.2), pad_range=(3, 30), **kargs):
+    def __init__(self, data_type="train", digit=(5, 15),
+                 bg_noise=(0, 0.2), pad_range=(3, 30)):
         """
         generate data for Calculation
 
         :param data_type: Select one, (train, test, validation)
-        :param digit : the length of number (몇개의 숫자를 serialize할 것인지 결정)
+        :param digit_range : the length of number (몇개의 숫자를 serialize할 것인지 결정)
+          if digit is integer, the length of number is always same value.
+          if digit is tuple(low_value, high_value), the length of number will be determined within the range
         :param bg_noise : the background noise of image, bg_noise = (gaussian mean, gaussian stddev)
         :param pad_range : the padding length between two number (두 숫자 간 거리, 값의 범위로 주어 랜덤하게 결정)
         """
         self.images, self.labels = load_dataset("mnist", data_type)
-        self.digit = digit
-        self.num_data = len(self.labels) // self.digit
+        if isinstance(digit, int):
+            self.digit_range = (digit, digit+1)
+        else:
+            self.digit_range = digit
+        self.num_data = len(self.labels) // (self.digit_range[1]-1)
         self.index_list = np.arange(len(self.labels))
 
-        self.digit = digit
         self.bg_noise = bg_noise
         self.pad_range = pad_range
 
-        self.max_length = int((20 + pad_range[1]) * digit * 2)
+        self.max_length = int((20 + pad_range[1]) * self.digit_range[1] * 2)
         self._setup_ops_image()  # create mnist-style image of brackets and operations
 
     def __len__(self):
@@ -191,8 +201,9 @@ class CalculationDataset:
 
     def __getitem__(self, index):
         if isinstance(index, int):
-            digits = self.index_list[self.digit * index:
-                                     self.digit * (index + 1)]
+            num_digit = np.random.randint(*self.digit_range)
+            start_index = (self.digit_range[1] - 1) * index
+            digits = self.index_list[start_index :start_index + num_digit]
 
             digit_images = self.images[digits]
             digit_labels = self.labels[digits].values
@@ -206,8 +217,9 @@ class CalculationDataset:
                 [], [], [], []
             indexes = np.arange(self.num_data)[index]
             for _index in indexes:
-                digits = self.index_list[self.digit * _index:
-                                         self.digit * (_index + 1)]
+                num_digit = np.random.randint(*self.digit_range)
+                start_index = (self.digit_range[1] - 1) * _index
+                digits = self.index_list[start_index :start_index + num_digit]
 
                 digit_images = self.images[digits]
                 digit_labels = self.labels[digits].values
@@ -261,12 +273,16 @@ class CalculationDataset:
             rb_candidate = np.random.randint(lb_candidate, N)
             # 왼괄호/오른괄호 넣기
             cal_series[lb_candidate * 4] = cal_series[lb_candidate * 4] + "("
-            cal_series[rb_candidate * 4 +
-                       2] = cal_series[rb_candidate * 4 + 2] + ")"
+            cal_series[rb_candidate * 4 + 2] = cal_series[rb_candidate * 4 + 2] + ")"
 
         equation = "".join(list(cal_series[:-1]))
         eq_image = self._draw_equation(images, equation)
-        eq_result = eval(equation)
+        try:
+            eq_result = eval(equation)
+        except ZeroDivisionError as e:
+            # TODO : ZeroDivisionError가 나오지 않는 equation generator를 만들어야 함
+            # 직접 수식에서 ZeroDivisionCase를 찾는 방법이 당장 떠오르지 않음
+            eq_image, eq_result, equation = self._create_equation_random(images, labels)
 
         return eq_image, eq_result, equation
 
@@ -352,6 +368,14 @@ class CalculationDataset:
         multiply = cv2.GaussianBlur(image, (3, 3), 1)
         self.multiply = multiply / 255
 
+        # 나누기가 잘 만들어지는지 확인
+        blank = np.zeros((28, 28), np.uint8)
+        image = cv2.putText(blank, "%", (7, 20), cv2.FONT_HERSHEY_TRIPLEX,
+                            0.6, 255)
+        divide = cv2.GaussianBlur(image, (3, 3), 1)
+        self.divide = divide / 255
+
+
     def _draw_equation(self, images, equation):
         n_idx = 0
         equation_images = np.zeros((len(equation), *images.shape[1:]))
@@ -369,6 +393,9 @@ class CalculationDataset:
                 equation_images[idx] = self.minus
             elif element == "*":
                 equation_images[idx] = self.multiply
+            elif element == "/":
+                equation_images[idx] = self.divide
+
         return equation_images
 
 
