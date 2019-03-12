@@ -165,7 +165,7 @@ class CalculationDataset:
     """
 
     def __init__(self, data_type="train", digit=5,
-                 bg_noise=(0, 0.2), pad_range=(3, 30)):
+                 bg_noise=(0, 0.2), pad_range=(3, 30), **kargs):
         """
         generate data for Calculation
 
@@ -242,13 +242,13 @@ class CalculationDataset:
         """
         N = len(labels)
         numbers = labels  # 숫자 N개 도출
-
-        ops = np.random.choice(["+", "-", "*"], size=N - 1)  # 연산자 N-1개 추출
-
+        
         # 괄호 후보군을 포함한 수식 전체 리스트 만들기
-        cal_series = np.array([""] * (4 * N - 1), dtype="<U{}".format(N))
+        cal_series = np.array([""] * (4*N), dtype="<U{}".format(N))
+        
         # 숫자와 연산자 채워넣기
-        cal_series[1::4] = numbers
+        cal_series[1::4] = numbers        
+        ops = np.random.choice(["+", "-", "*", "/"], len(cal_series[3::4]))
         cal_series[3::4] = ops
 
         # 괄호의 숫자 N개 도출
@@ -264,7 +264,7 @@ class CalculationDataset:
             cal_series[rb_candidate * 4 +
                        2] = cal_series[rb_candidate * 4 + 2] + ")"
 
-        equation = "".join(list(cal_series))
+        equation = "".join(list(cal_series[:-1]))
         eq_image = self._draw_equation(images, equation)
         eq_result = eval(equation)
 
