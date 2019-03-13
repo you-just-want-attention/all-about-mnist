@@ -122,8 +122,8 @@ def iou_metric(y_true, y_pred):
     """ Implements metric graph for calculating Intersection-over-union
 
     """
-    pred_centers = tf.reshape(y_pred, (-1, 4))
-    true_centers = tf.reshape(y_true, (-1, 4))
+    pred_centers = tf.reshape(y_pred, shape=(-1, 4))
+    true_centers = tf.reshape(y_true, shape=(-1, 4))
 
     def tf_center2minmax(centers):
         center_x = centers[:, 0]
@@ -158,8 +158,8 @@ def accuracy_metric(y_true, y_pred):
     """ Implements metric graph for calculating accuracy
 
     """
-    y_true = tf.reshape(y_true, shape=[-1,4])
-    y_pred = tf.reshape(y_pred, shape=[-1,4])
+    y_true = tf.reshape(y_true, shape=[-1,10])
+    y_pred = tf.reshape(y_pred, shape=[-1,10])
     true_labels = tf.argmax(y_true, axis=-1)
     pred_labels = tf.argmax(y_pred, axis=-1)
     correct = tf.equal(true_labels, pred_labels)
