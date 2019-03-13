@@ -1,7 +1,41 @@
-# [All about mnist]
+# All about mnist
 
-- 이 프로젝트에서 우리는 MNIST를 활용해 vision에서 다뤄지는 기본 문제들을 해결할 것이다.
+A Tensorflow and pytorch implementation of the image-to text model described in these paper:
 
-- Attention이란 무엇인지, 왜 필요한지 논의해볼 것이다.
+### 강상재, 김지원
 
-- Attention을 통해 long-term dependency가 있는, 괄호가 있는 혼합 계산 식을 풀 것이다.
+## Contents
+
+* [Project Overview](#project-overview)
+    * [Introduction](#introduction)
+    * [Architecture](#architecture)
+* [Algorithms](#algorithms)
+* [Data](#data)
+	* [Fashion_mnist](#fashion-mnist)
+	* [Handwritten](#handwritten)
+	* [MNIST](#mnist)
+* [Library](#library)
+	* [Pytorch](#pytorch)
+	* [Tensorflow](#tensorflow)
+
+## Project Overview
+
+### Introduction
+
+### Architecture
+
+## Algorithms
+
+## Data
+
+### Fashin mnist
+
+### Handwritten
+
+### MNIST
+
+## Library
+
+### Pytorch
+
+### Tensorflow
