@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-import os
 import cv2
+import os
 
 """
 # All about MNIST Style DataSet
@@ -17,12 +17,14 @@ import cv2
 Current Implemented Generator list
 
     1. SerializationDataset
-    
+
     2. CalculationDataset
 
     3. ClassificationDataset
 
     4. LocalizationDataset
+
+    5. DetectionDataset
 
 """
 DOWNLOAD_URL_FORMAT = "https://s3.ap-northeast-2.amazonaws.com/pai-datasets/all-about-mnist/{}/{}.csv"
@@ -38,6 +40,8 @@ class SerializationDataset:
     :param dataset : Select one, (mnist, fashionmnist, handwritten)
     :param data_type : Select one, (train, test, validation)
     :param digit : the length of number (몇개의 숫자를 serialize할 것인지 결정)
+          if digit is integer, the length of number is always same value.
+          if digit is tuple(low_value, high_value), the length of number will be determined within the range
     :param bg_noise : the background noise of image, bg_noise = (gaussian mean, gaussian stddev)
     :param pad_range : the padding length between two number (두 숫자 간 거리, 값의 범위로 주어 랜덤하게 결정)
     """
@@ -57,10 +61,10 @@ class SerializationDataset:
         """
         self.images, self.labels = load_dataset(dataset, data_type)
         if isinstance(digit, int):
-            self.digit_range = (digit, digit+1)
+            self.digit_range = (digit, digit + 1)
         else:
             self.digit_range = digit
-        self.num_data = len(self.labels) // (self.digit_range[1]-1)
+        self.num_data = len(self.labels) // (self.digit_range[1] - 1)
         self.index_list = np.arange(len(self.labels))
 
         self.bg_noise = bg_noise
@@ -74,8 +78,8 @@ class SerializationDataset:
     def __getitem__(self, index):
         if isinstance(index, int):
             num_digit = np.random.randint(*self.digit_range)
-            start_index = (self.digit_range[1]-1) * index
-            digits = self.index_list[start_index :start_index + num_digit]
+            start_index = (self.digit_range[1] - 1) * index
+            digits = self.index_list[start_index:start_index + num_digit]
 
             digit_images = self.images[digits]
             digit_labels = self.labels[digits].values
@@ -89,7 +93,7 @@ class SerializationDataset:
             for _index in indexes:
                 num_digit = np.random.randint(*self.digit_range)
                 start_index = (self.digit_range[1] - 1) * _index
-                digits = self.index_list[start_index :start_index + num_digit]
+                digits = self.index_list[start_index:start_index + num_digit]
 
                 digit_images = self.images[digits]
                 digit_labels = self.labels[digits].values
@@ -184,10 +188,10 @@ class CalculationDataset:
         """
         self.images, self.labels = load_dataset("mnist", data_type)
         if isinstance(digit, int):
-            self.digit_range = (digit, digit+1)
+            self.digit_range = (digit, digit + 1)
         else:
             self.digit_range = digit
-        self.num_data = len(self.labels) // (self.digit_range[1]-1)
+        self.num_data = len(self.labels) // (self.digit_range[1] - 1)
         self.index_list = np.arange(len(self.labels))
 
         self.bg_noise = bg_noise
@@ -203,7 +207,7 @@ class CalculationDataset:
         if isinstance(index, int):
             num_digit = np.random.randint(*self.digit_range)
             start_index = (self.digit_range[1] - 1) * index
-            digits = self.index_list[start_index :start_index + num_digit]
+            digits = self.index_list[start_index:start_index + num_digit]
 
             digit_images = self.images[digits]
             digit_labels = self.labels[digits].values
@@ -219,7 +223,7 @@ class CalculationDataset:
             for _index in indexes:
                 num_digit = np.random.randint(*self.digit_range)
                 start_index = (self.digit_range[1] - 1) * _index
-                digits = self.index_list[start_index :start_index + num_digit]
+                digits = self.index_list[start_index:start_index + num_digit]
 
                 digit_images = self.images[digits]
                 digit_labels = self.labels[digits].values
@@ -254,12 +258,12 @@ class CalculationDataset:
         """
         N = len(labels)
         numbers = labels  # 숫자 N개 도출
-        
+
         # 괄호 후보군을 포함한 수식 전체 리스트 만들기
-        cal_series = np.array([""] * (4*N), dtype="<U{}".format(N))
-        
+        cal_series = np.array([""] * (4 * N), dtype="<U{}".format(N))
+
         # 숫자와 연산자 채워넣기
-        cal_series[1::4] = numbers        
+        cal_series[1::4] = numbers
         ops = np.random.choice(["+", "-", "*", "/"], len(cal_series[3::4]))
         cal_series[3::4] = ops
 
@@ -273,7 +277,8 @@ class CalculationDataset:
             rb_candidate = np.random.randint(lb_candidate, N)
             # 왼괄호/오른괄호 넣기
             cal_series[lb_candidate * 4] = cal_series[lb_candidate * 4] + "("
-            cal_series[rb_candidate * 4 + 2] = cal_series[rb_candidate * 4 + 2] + ")"
+            cal_series[rb_candidate * 4 +
+                       2] = cal_series[rb_candidate * 4 + 2] + ")"
 
         equation = "".join(list(cal_series[:-1]))
         eq_image = self._draw_equation(images, equation)
@@ -282,7 +287,8 @@ class CalculationDataset:
         except ZeroDivisionError as e:
             # TODO : ZeroDivisionError가 나오지 않는 equation generator를 만들어야 함
             # 직접 수식에서 ZeroDivisionCase를 찾는 방법이 당장 떠오르지 않음
-            eq_image, eq_result, equation = self._create_equation_random(images, labels)
+            eq_image, eq_result, equation = self._create_equation_random(
+                images, labels)
 
         return eq_image, eq_result, equation
 
@@ -374,7 +380,6 @@ class CalculationDataset:
                             0.6, 255)
         divide = cv2.GaussianBlur(image, (3, 3), 1)
         self.divide = divide / 255
-
 
     def _draw_equation(self, images, equation):
         n_idx = 0
@@ -469,8 +474,8 @@ class LocalizationDataset:
             positions = []
             labels = batch_labels.values
             for image in batch_images:
-                image = self.rescale_random(image)
-                image_with_bg, position = self.place_random(image)
+                image = self._rescale_random(image)
+                image_with_bg, position = self._place_random(image)
                 image_with_bgs.append(image_with_bg)
                 positions.append(position)
 
@@ -481,8 +486,8 @@ class LocalizationDataset:
             """
              # of index == 1 -> no need to stack
             """
-            image = self.rescale_random(batch_images)
-            image_with_bg, position = self.place_random(image)
+            image = self._rescale_random(batch_images)
+            image_with_bg, position = self._place_random(image)
             label = batch_labels
             return image_with_bg, position, label
 
@@ -494,12 +499,12 @@ class LocalizationDataset:
         self.labels = self.labels[indexes]
         self.labels.index = np.arange(len(self.labels))
 
-    def rescale_random(self, image):
+    def _rescale_random(self, image):
         value = np.random.uniform(*self.rescale_ratio)
         image = cv2.resize(image, None, fx=value, fy=value)
         return image
 
-    def place_random(self, image):
+    def _place_random(self, image):
         background = np.random.normal(*self.bg_noise, size=self.bg_size)
         height, width = self.bg_size
         height_fg, width_fg = image.shape
@@ -516,6 +521,144 @@ class LocalizationDataset:
 
         background = np.clip(background, 0., 1.)
         return background, position
+
+
+class DetectionDataset:
+    def __init__(self, dataset="mnist", data_type="train",
+                 digit=(3, 8), rescale_ratio=(.8, 3.),
+                 bg_size=(224, 224), bg_noise=(0, 0.2)):
+        """
+        generate data for Detection
+
+        :param dataset: Select one, (mnist, fashionmnist, handwritten)
+        :param data_type: Select one, (train, test, validation)
+        :param digit : the length of number (몇개의 숫자를 serialize할 것인지 결정)
+          if digit is integer, the length of number is always same value.
+          if digit is tuple(low_value, high_value),
+          the length of number will be determined within the range
+
+        :param bg_size : the shape of background image
+        :param bg_noise : the background noise of image,
+               bg_noise = (gaussian mean, gaussian stddev)
+        """
+        self.images, self.labels = load_dataset(dataset, data_type)
+        if isinstance(digit, int):
+            self.digit_range = (digit, digit + 1)
+        else:
+            self.digit_range = digit
+        self.num_data = len(self.labels) // (self.digit_range[1] - 1)
+        self.index_list = np.arange(len(self.labels))
+
+        self.rescale_ratio = rescale_ratio
+        self.bg_size = bg_size
+        self.bg_noise = bg_noise
+
+    def __len__(self):
+        return self.num_data
+
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            num_digit = np.random.randint(*self.digit_range)
+            start_index = (self.digit_range[1] - 1) * index
+            digits = self.index_list[start_index:start_index + num_digit]
+
+            digit_images = self.images[digits]
+            digit_labels = self.labels[digits].values
+            image, digit_positions = self._scatter_random(digit_images)
+
+            return image, digit_labels, digit_positions
+        else:
+            batch_images, batch_labels, batch_pos = [], [], []
+            indexes = np.arange(self.num_data)[index]
+            for _index in indexes:
+                num_digit = np.random.randint(*self.digit_range)
+                start_index = (self.digit_range[1] - 1) * _index
+                digits = self.index_list[start_index:start_index + num_digit]
+
+                digit_images = self.images[digits]
+                digit_labels = self.labels[digits].values
+
+                image, digit_positions = self._scatter_random(digit_images)
+
+                batch_images.append(image)
+                batch_labels.append(digit_labels)
+                batch_pos.append(digit_positions)
+
+            return np.stack(batch_images), \
+                np.stack(batch_labels), \
+                np.stack(batch_pos)
+
+    def shuffle(self):
+        indexes = np.arange(len(self.images))
+        np.random.shuffle(indexes)
+
+        self.images = self.images[indexes]
+        self.labels = self.labels[indexes]
+        self.labels.index = np.arange(len(self.labels))
+
+    def _scatter_random(self, images):
+        background = np.random.normal(*self.bg_noise,
+                                      size=self.bg_size)
+        positions = []
+
+        for image in images:
+            image = self._rescale_random(image)
+            background, position = self._place_random(image,
+                                                      background,
+                                                      positions)
+            positions.append(position)
+
+        return background, np.array(positions)
+
+    def _rescale_random(self, image):
+        value = np.random.uniform(*self.rescale_ratio)
+        image = cv2.resize(image, None, fx=value, fy=value)
+        return image
+
+    def _place_random(self, image, background, prev_pos):
+        height, width = self.bg_size
+        height_fg, width_fg = image.shape
+
+        x_min, x_max, y_min, y_max = crop_fit_position(image)
+
+        while True:
+            y = np.random.randint(0, height - height_fg - 1)
+            x = np.random.randint(0, width - width_fg - 1)
+
+            position = np.array([(x_min + x) / width, (x_max + x) / width,
+                                 (y_min + y) / height, (y_max + y) / height])
+
+            if not self._check_overlap(position, prev_pos):
+                # 이전의 object랑 겹치지 않으면 넘어감
+                break
+
+        background[y:y + height_fg, x:x + width_fg] += image
+
+        background = np.clip(background, 0., 1.)
+        return background, position
+
+    def _check_overlap(self, curr_pos, prev_pos):
+        if len(prev_pos) == 0:
+            return False
+        else:
+            prev_pos = np.array(prev_pos)
+
+        # 각 면적 구하기
+        curr_area = (curr_pos[1] - curr_pos[0]) * (curr_pos[3] - curr_pos[2])
+        prev_area = (prev_pos.T[1] - prev_pos.T[0]) * (prev_pos.T[3] - prev_pos.T[2])
+
+        # Intersection 면적 구하기
+        _, it_min_xs, _, it_min_ys = np.minimum(curr_pos, prev_pos).T
+        it_max_xs, _, it_max_ys, _ = np.maximum(curr_pos, prev_pos).T
+
+        it_width = ((it_min_xs - it_max_xs) > 0) * (it_min_xs - it_max_xs)
+        it_height = ((it_min_ys - it_max_ys) > 0) * (it_min_ys - it_max_ys)
+
+        intersection = (it_width * it_height)
+        # 전체 면적 구하기
+        union = (curr_area + prev_area) - intersection
+        # IOU가 5%이상이 되는 겹침 현상 발생하면, 겹쳤다고 판정
+        return np.max(intersection / union) >= 0.05
 
 
 def crop_fit_position(image):
