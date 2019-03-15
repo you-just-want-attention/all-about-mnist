@@ -1,3 +1,7 @@
+![https://pbs.twimg.com/media/DqAN0T2U8AAvS0Y.jpg]()
+
+slide from Rachal's TEDx.
+
 # All about mnist
 
 A Tensorflow and pytorch implementation of the image-to text model described in these paper:
