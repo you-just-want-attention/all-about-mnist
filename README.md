@@ -1,4 +1,4 @@
-![https://pbs.twimg.com/media/DqAN0T2U8AAvS0Y.jpg]()
+![](https://pbs.twimg.com/media/DqAN0T2U8AAvS0Y.jpg)
 
 slide from Rachal's TEDx.
 
