@@ -579,14 +579,13 @@ class DetectionDataset:
                 digit_labels = self.labels[digits].values
 
                 image, digit_positions = self._scatter_random(digit_images)
-
                 batch_images.append(image)
                 batch_labels.append(digit_labels)
                 batch_pos.append(digit_positions)
 
-            return np.stack(batch_images), \
-                np.stack(batch_labels), \
-                np.stack(batch_pos)
+            return batch_images, \
+                batch_labels, \
+                batch_pos
 
     def shuffle(self):
         indexes = np.arange(len(self.images))
@@ -625,8 +624,7 @@ class DetectionDataset:
             y = np.random.randint(0, height - height_fg - 1)
             x = np.random.randint(0, width - width_fg - 1)
 
-            position = np.array([(x_min + x) / width, (x_max + x) / width,
-                                 (y_min + y) / height, (y_max + y) / height])
+            position = np.array([(x_min + x), (x_max + x), (y_min + y), (y_max + y)])
 
             if not self._check_overlap(position, prev_pos):
                 # 이전의 object랑 겹치지 않으면 넘어감
