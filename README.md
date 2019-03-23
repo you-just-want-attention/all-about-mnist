@@ -1,10 +1,14 @@
 ![](https://pbs.twimg.com/media/DqAN0T2U8AAvS0Y.jpg)
 
-slide from Rachal's TEDx.
+slide from [Rachal's TEDx](https://www.youtube.com/watch?v=LqjP7O9SxOM).
 
 # All about mnist
 
-A Tensorflow and pytorch implementation of the image-to text model described in these paper:
+A Tensorflow and pytorch implementation of 
+	(1) the image captioning(image to text) model described in these paper
+		- 1. 
+	(2) the text recognition model described in these paper
+		- 1.
 
 ### 강상재, 김지원
 
