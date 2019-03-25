@@ -1,5 +1,7 @@
 S2S
 - parameter : N_STEP, N_HIDDEN
+- class : seq2seq
 
 S2S(attention)
-- N_HIDDEN
+- parameter : N_STEP, N_HIDDEN
+- class : attention
