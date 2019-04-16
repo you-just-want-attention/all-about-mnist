@@ -43,7 +43,7 @@ class SerializationDataset:
     """
 
     def __init__(self, dataset="mnist", data_type="train",
-                 digit=5, bg_noise=(0, 0.2), pad_range=(3, 30)):
+                 digit=5, bg_noise=(0, 0.2), pad_range=(3, 10)):
         """
         generate data for Serialization
 
@@ -66,7 +66,7 @@ class SerializationDataset:
         self.bg_noise = bg_noise
         self.pad_range = pad_range
 
-        self.max_length = int((20 + pad_range[1]) * self.digit_range[1] * 2)
+        self.max_length = int((15 + pad_range[1]) * self.digit_range[1])
 
     def __len__(self):
         return self.num_data
@@ -99,7 +99,7 @@ class SerializationDataset:
                 batch_length.append(series_len)
 
             return np.stack(batch_images), \
-                np.stack(batch_labels), \
+                batch_labels, \
                 np.stack(batch_length)
 
     def shuffle(self):
