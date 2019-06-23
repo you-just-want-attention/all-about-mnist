@@ -2,15 +2,14 @@
 
 slide from [Rachal's TEDx](https://www.youtube.com/watch?v=LqjP7O9SxOM).
 
-# All about mnist
+# All about MNIST
 
-A Tensorflow and pytorch implementation of 
-	(1) the image captioning(image to text) model described in these paper
-		- 1. 
-	(2) the text recognition model described in these paper
-		- 1.
-
-### 강상재, 김지원
+Using MNIST data, this project will implement a Tensorflow version and a Pytorch version to learn following</br>
+	(1) Attention mechanism
+		- seq2seq model (Sutskever, et al. 2014)[https://papers.nips.cc/paper/5346-sequence-to-sequence-learning-with-neural-networks.pdf]
+		- attention mechanism (Bahdanau et al., 2015)[https://arxiv.org/pdf/1409.0473.pdf]
+	(2) Text recognition model
+	(3) The image captioning(image to text) model
 
 ## Contents
 
