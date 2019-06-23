@@ -4,7 +4,7 @@ slide from [Rachal's TEDx](https://www.youtube.com/watch?v=LqjP7O9SxOM).
 
 # All about MNIST
 
-Using MNIST data, this project will implement a Tensorflow version and a Pytorch version to learn following</br>
+Using MNIST data, this project will implement a Tensorflow version and a Pytorch version to learn following
 	- Attention mechanism
 		- seq2seq model (Sutskever, et al. 2014)[https://papers.nips.cc/paper/5346-sequence-to-sequence-learning-with-neural-networks.pdf]
 		- attention mechanism (Bahdanau et al., 2015)[https://arxiv.org/pdf/1409.0473.pdf]
