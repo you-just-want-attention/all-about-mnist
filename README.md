@@ -8,7 +8,7 @@ A Tensorflow and pytorch implementation of</br>
 	(1) The computer vision(image captioning) paper which is used in this project
 - blah blah
 
-	(2) Language modeling paper which is applied in these project
+(2) Language modeling paper which is applied in these project
 - blah blah
 
 ## Contents
