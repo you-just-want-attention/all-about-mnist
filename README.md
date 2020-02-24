@@ -8,26 +8,37 @@ slide from [Rachal's TEDx](https://www.youtube.com/watch?v=LqjP7O9SxOM).
 
 * [Project Overview](#project-overview)
 
+
+* [Data](#data)
+    * [MNIST](#mnist)
 * [Algorithms](#algorithms)
 	* [Architecture](#architecture)
-* [Data](#data)
-	* [MNIST](#mnist)
 * [Library](#library)
 	* [Pytorch](#pytorch)
 	* [Tensorflow](#tensorflow)
 
 ## Project Overview
 
-- Using MNIST dataset, which is bacis to machine learning, you can learn the core concepts of NLP and Computer vision.
-- Generated arithmetic equations which has random length, and 
-
-### Architecture
-
-## Algorithms
-
 ## Data
 
 ### MNIST
+
+
+- Using MNIST dataset, which is bacis to machine learning, you can learn the core concepts of NLP and Computer vision.
+- Generated arithmetic equations which has random length, [code](https://github.com/you-just-want-attention/image-captioning/blob/master/utils/dataset.py)
+    * SerializationDataset: Arrange the data
+    * CalculationDataset: Automatically make operations
+    * ClassificationDataset: Making data lable, which is result of arithmetic
+
+
+![](/assets/equation1.png)
+![](/assets/equation2.png)
+![](/assets/equation3.png)
+![](/assets/equation4.png)
+
+## Algorithms
+
+### Architecture
 
 ## Library
 
