@@ -41,7 +41,7 @@ slide from [Rachal's TEDx](https://www.youtube.com/watch?v=LqjP7O9SxOM).
 sequence to sequence model (Enncoder-Decoder)
 - Seq2seq model, *pytorch* [code](https://github.com/you-just-want-attention/image-captioning/blob/master/scripts/calculation/seq_2_seq_model_torch.ipynb)
 
-![](/assets/assets/seq2seq.jpeg)
+![](/assets/seq2seq.jpeg)
 
 - Seq2seq with attention, *pytorch* [code](https://github.com/you-just-want-attention/image-captioning/blob/master/scripts/calculation/seq_2_seq_model_attention_torch.ipynb)
 - VGG classification model, *tensorflow* [code](https://github.com/you-just-want-attention/image-captioning/blob/master/tf_models/classification/models.py)
