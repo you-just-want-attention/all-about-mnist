@@ -26,6 +26,7 @@ slide from [Rachal's TEDx](https://www.youtube.com/watch?v=LqjP7O9SxOM).
     * SerializationDataset: Arrange the data
     * CalculationDataset: Automatically make operations
     * ClassificationDataset: Making data lable, which is result of arithmetic
+- if you want to use jupyter notebook and test it, click [code](https://github.com/you-just-want-attention/image-captioning/blob/master/scripts/mnist-data-calculation-pipeline.ipynb)
 
 
 ![](/assets/equation1.png)
