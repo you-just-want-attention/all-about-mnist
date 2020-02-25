@@ -13,9 +13,6 @@ slide from [Rachal's TEDx](https://www.youtube.com/watch?v=LqjP7O9SxOM).
     * [MNIST](#mnist)
 * [Algorithms](#algorithms)
 	* [Architecture](#architecture)
-* [Library](#library)
-	* [Pytorch](#pytorch)
-	* [Tensorflow](#tensorflow)
 
 ## Project Overview
 
@@ -42,12 +39,8 @@ slide from [Rachal's TEDx](https://www.youtube.com/watch?v=LqjP7O9SxOM).
 
 - Seq2seq model, *pytorch* [code](https://github.com/you-just-want-attention/image-captioning/blob/master/scripts/calculation/seq_2_seq_model_torch.ipynb)
 - Seq2seq with attention, *pytorch* [code](https://github.com/you-just-want-attention/image-captioning/blob/master/scripts/calculation/seq_2_seq_model_attention_torch.ipynb)
+- VGG net, *tensorflow* [code](https://github.com/you-just-want-attention/image-captioning/blob/master/tf_models/classification/models.py)
 
-## Library
-
-### Pytorch
-
-### Tensorflow
 
 ## Reference
 
